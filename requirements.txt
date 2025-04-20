@@ -1,0 +1,4 @@
+streamlit
+padelpy
+pandas
+scikit-learn
