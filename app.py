@@ -7,11 +7,15 @@ import base64
 import pickle
 
 
+from padelpy import padeldescriptor
+
 def desc_calc():
-    bashCommand = "java -Xms2G -Xmx2G -Djava.awt.headless=true -jar ./PaDEL-Descriptor/PaDEL-Descriptor.jar -removesalt -standardizenitro -fingerprints -descriptortypes ./PaDEL-Descriptor/PubchemFingerprinter.xml -dir ./ -file descriptors_output.csv"
-    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    os.remove('alzheimers_molecule.smi')
+    padeldescriptor(
+        mol_dir='uploaded_molecules.smi',    # Your input SMILES file
+        d_file='descriptors.csv',            # Output file with descriptors
+        fingerprints=True                    # Calculates molecular fingerprints
+    )
+
 
 
 def filedownload(df):
@@ -28,7 +32,7 @@ def build_model(input_data):
     prediction = load_model.predict(input_data)
     st.header('**Prediction output**')
     prediction_output = pd.Series(prediction, name='pIC50')
-    chembl_id = pd.Series(load_data.iloc[:, 1], name='chembl_id') # Use the first column for molecule names
+    chembl_id = pd.Series(load_data.iloc[:, 0], name='chembl_id')  # Use the first column for molecule names
     df = pd.concat([chembl_id, prediction_output], axis=1)
     
     df_sorted = df.sort_values(by='pIC50', ascending=False)
