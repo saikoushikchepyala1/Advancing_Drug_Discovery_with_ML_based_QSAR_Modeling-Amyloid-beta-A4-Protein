@@ -30,8 +30,6 @@ st.markdown("# QSAR-based Drug Activity Prediction")
 # Upload input compound file (.smi or .csv)
 uploaded_file = st.sidebar.file_uploader("Step 1: Upload compound file (.smi or .csv)", type=['smi', 'txt', 'csv'])
 
-# Upload descriptor file
-uploaded_desc_file = st.sidebar.file_uploader("Step 2: Upload descriptor CSV (from PaDEL)", type=['csv'])
 
 if st.sidebar.button('Predict'):
     if uploaded_file is not None and uploaded_desc_file is not None:
