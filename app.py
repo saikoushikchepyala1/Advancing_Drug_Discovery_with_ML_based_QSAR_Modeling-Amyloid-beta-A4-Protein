@@ -44,11 +44,7 @@ if st.sidebar.button('Predict'):
         st.header('**Original input data**')
         st.write(load_data)
 
-        # Load descriptor CSV
-        desc = pd.read_csv(uploaded_desc_file)
-        st.header('**Uploaded molecular descriptors**')
-        st.write(desc)
-        st.write(desc.shape)
+       
 
         # Subset selection
         st.header('**Subset of descriptors used by model**')
