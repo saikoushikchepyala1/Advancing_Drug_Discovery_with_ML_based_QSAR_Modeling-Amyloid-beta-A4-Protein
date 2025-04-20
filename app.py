@@ -9,12 +9,12 @@ import pickle
 
 from padelpy import padeldescriptor
 
+
 def desc_calc():
-    padeldescriptor(
-        mol_dir='alzheimers_molecule.smi',    # Your input SMILES file
-        d_file='descriptors_output.csv',            # Output file with descriptors
-        fingerprints=True                    # Calculates molecular fingerprints
-    )
+    bashCommand = "java -Xms2G -Xmx2G -Djava.awt.headless=true -jar ./PaDEL-Descriptor/PaDEL-Descriptor.jar -removesalt -standardizenitro -fingerprints -descriptortypes ./PaDEL-Descriptor/PubchemFingerprinter.xml -dir ./ -file descriptors_output.csv"
+    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    os.remove('alzheimers_molecule.smi')
 
 
 
