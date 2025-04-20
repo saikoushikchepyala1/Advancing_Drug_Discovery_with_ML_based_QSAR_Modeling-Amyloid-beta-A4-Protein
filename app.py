@@ -11,8 +11,8 @@ from padelpy import padeldescriptor
 
 def desc_calc():
     padeldescriptor(
-        mol_dir='uploaded_molecules.smi',    # Your input SMILES file
-        d_file='descriptors.csv',            # Output file with descriptors
+        mol_dir='alzheimers_molecule.smi',    # Your input SMILES file
+        d_file='descriptors_output.csv',            # Output file with descriptors
         fingerprints=True                    # Calculates molecular fingerprints
     )
 
