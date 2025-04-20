@@ -1,66 +1,88 @@
+
 import streamlit as st
 import pandas as pd
+from PIL import Image
+import subprocess
+import os
 import base64
 import pickle
 
-# Load the ML model
-model = pickle.load(open('bioactivity_prediction_model.pkl', 'rb'))
+# Molecular descriptor calculator
+def desc_calc():
+    # Performs the descriptor calculation
+    bashCommand = "java -Xms2G -Xmx2G -Djava.awt.headless=true -jar ./PaDEL-Descriptor/PaDEL-Descriptor.jar -removesalt -standardizenitro -fingerprints -descriptortypes ./PaDEL-Descriptor/PubchemFingerprinter.xml -dir ./ -file descriptors_output.csv"
+    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    os.remove('molecule.smi')
 
-# Download predictions as CSV
+# File download
 def filedownload(df):
     csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()  
+    b64 = base64.b64encode(csv.encode()).decode()  # strings <-> bytes conversions
     href = f'<a href="data:file/csv;base64,{b64}" download="prediction.csv">Download Predictions</a>'
     return href
 
-# Prediction logic
-def build_model(input_data, load_data):
-    prediction = model.predict(input_data)
+# Model building
+def build_model(input_data):
+    # Reads in saved regression model
+    load_model = pickle.load(open('acetylcholinesterase_model.pkl', 'rb'))
+    # Apply model to make predictions
+    prediction = load_model.predict(input_data)
     st.header('**Prediction output**')
     prediction_output = pd.Series(prediction, name='pIC50')
-    chembl_id = pd.Series(load_data.iloc[:, 1], name='chembl_id')
-    df = pd.concat([chembl_id, prediction_output], axis=1)
-    df_sorted = df.sort_values(by='pIC50', ascending=False)
-    st.write(df_sorted)
-    st.markdown(filedownload(df_sorted), unsafe_allow_html=True)
+    molecule_name = pd.Series(load_data[1], name='molecule_name')
+    df = pd.concat([molecule_name, prediction_output], axis=1)
+    st.write(df)
+    st.markdown(filedownload(df), unsafe_allow_html=True)
 
-# Streamlit App
-st.markdown("# QSAR-based Drug Activity Prediction")
+# Logo image
+image = Image.open('logo.png')
 
-# Upload input compound file (.smi or .csv)
-uploaded_file = st.sidebar.file_uploader("Step 1: Upload compound file (.smi or .csv)", type=['smi', 'txt', 'csv'])
+st.image(image, use_column_width=True)
 
-# Upload descriptor file
-uploaded_desc_file = st.sidebar.file_uploader("Step 2: Upload descriptor CSV (from PaDEL)", type=['csv'])
+# Page title
+st.markdown("""
+# Bioactivity Prediction App (Acetylcholinesterase)
+
+This app allows you to predict the bioactivity towards inhibting the `Acetylcholinesterase` enzyme. `Acetylcholinesterase` is a drug target for Alzheimer's disease.
+
+**Credits**
+- App built in `Python` + `Streamlit` by [Chanin Nantasenamat](https://medium.com/@chanin.nantasenamat) (aka [Data Professor](http://youtube.com/dataprofessor))
+- Descriptor calculated using [PaDEL-Descriptor](http://www.yapcwsoft.com/dd/padeldescriptor/) [[Read the Paper]](https://doi.org/10.1002/jcc.21707).
+---
+""")
+
+# Sidebar
+with st.sidebar.header('1. Upload your CSV data'):
+    uploaded_file = st.sidebar.file_uploader("Upload your input file", type=['txt'])
+    st.sidebar.markdown("""
+[Example input file](https://raw.githubusercontent.com/dataprofessor/bioactivity-prediction-app/main/example_acetylcholinesterase.txt)
+""")
 
 if st.sidebar.button('Predict'):
-    if uploaded_file is not None and uploaded_desc_file is not None:
-        # Display compound file
-        if uploaded_file.name.endswith('.csv'):
-            load_data = pd.read_csv(uploaded_file)
-        else:
-            load_data = pd.read_table(uploaded_file, sep=' ', header=None)
+    load_data = pd.read_table(uploaded_file, sep=' ', header=None)
+    load_data.to_csv('molecule.smi', sep = '\t', header = False, index = False)
 
-        st.header('**Original input data**')
-        st.write(load_data)
+    st.header('**Original input data**')
+    st.write(load_data)
 
-        # Load descriptor CSV
-        desc = pd.read_csv(uploaded_desc_file)
-        st.header('**Uploaded molecular descriptors**')
-        st.write(desc)
-        st.write(desc.shape)
+    with st.spinner("Calculating descriptors..."):
+        desc_calc()
 
-        # Subset selection
-        st.header('**Subset of descriptors used by model**')
-        Xlist = list(pd.read_csv('descriptor_list.csv').columns)
-        desc_subset = desc[Xlist]
-        st.write(desc_subset)
-        st.write(desc_subset.shape)
+    # Read in calculated descriptors and display the dataframe
+    st.header('**Calculated molecular descriptors**')
+    desc = pd.read_csv('descriptors_output.csv')
+    st.write(desc)
+    st.write(desc.shape)
 
-        # Prediction
-        build_model(desc_subset, load_data)
-        
-    else:
-        st.error("Please upload both compound file and descriptor file.")
+    # Read descriptor list used in previously built model
+    st.header('**Subset of descriptors from previously built models**')
+    Xlist = list(pd.read_csv('descriptor_list.csv').columns)
+    desc_subset = desc[Xlist]
+    st.write(desc_subset)
+    st.write(desc_subset.shape)
+
+    # Apply trained model to make prediction on query compounds
+    build_model(desc_subset)
 else:
-    st.info("👈 Upload files to start prediction.")
+    st.info('Upload input data in the sidebar to start!')
