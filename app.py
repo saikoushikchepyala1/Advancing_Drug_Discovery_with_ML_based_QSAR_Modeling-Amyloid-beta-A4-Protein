@@ -1,56 +1,66 @@
 import streamlit as st
 import pandas as pd
-from PIL import Image
 import base64
 import pickle
 
+# Load the ML model
+model = pickle.load(open('bioactivity_prediction_model.pkl', 'rb'))
+
+# Download predictions as CSV
 def filedownload(df):
     csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()
+    b64 = base64.b64encode(csv.encode()).decode()  
     href = f'<a href="data:file/csv;base64,{b64}" download="prediction.csv">Download Predictions</a>'
     return href
 
-def build_model(input_data, chembl_ids):
-    load_model = pickle.load(open('bioactivity_prediction_model.pkl', 'rb'))
-    prediction = load_model.predict(input_data)
-    
+# Prediction logic
+def build_model(input_data, load_data):
+    prediction = model.predict(input_data)
     st.header('**Prediction output**')
     prediction_output = pd.Series(prediction, name='pIC50')
-    chembl_id = pd.Series(chembl_ids, name='chembl_id') 
+    chembl_id = pd.Series(load_data.iloc[:, 1], name='chembl_id')
     df = pd.concat([chembl_id, prediction_output], axis=1)
-    
     df_sorted = df.sort_values(by='pIC50', ascending=False)
     st.write(df_sorted)
     st.markdown(filedownload(df_sorted), unsafe_allow_html=True)
 
-# App title
-st.markdown("# Compounds Bioactivity Prediction")
+# Streamlit App
+st.markdown("# QSAR-based Drug Activity Prediction")
 
-# File upload
-with st.sidebar.header('1. Upload descriptor CSV file'):
-    uploaded_file = st.sidebar.file_uploader("Upload descriptor file (CSV)", type=['csv'])
+# Upload input compound file (.smi or .csv)
+uploaded_file = st.sidebar.file_uploader("Step 1: Upload compound file (.smi or .csv)", type=['smi', 'txt', 'csv'])
 
-# On click predict
+# Upload descriptor file
+uploaded_desc_file = st.sidebar.file_uploader("Step 2: Upload descriptor CSV (from PaDEL)", type=['csv'])
+
 if st.sidebar.button('Predict'):
-    if uploaded_file is not None:
-        desc = pd.read_csv(uploaded_file)
+    if uploaded_file is not None and uploaded_desc_file is not None:
+        # Display compound file
+        if uploaded_file.name.endswith('.csv'):
+            load_data = pd.read_csv(uploaded_file)
+        else:
+            load_data = pd.read_table(uploaded_file, sep=' ', header=None)
 
-        st.header('**Uploaded Descriptor Data**')
+        st.header('**Original input data**')
+        st.write(load_data)
+
+        # Load descriptor CSV
+        desc = pd.read_csv(uploaded_desc_file)
+        st.header('**Uploaded molecular descriptors**')
         st.write(desc)
         st.write(desc.shape)
 
-        # Subset descriptors
-        st.header('**Subset of descriptors from previously built model**')
+        # Subset selection
+        st.header('**Subset of descriptors used by model**')
         Xlist = list(pd.read_csv('descriptor_list.csv').columns)
         desc_subset = desc[Xlist]
         st.write(desc_subset)
         st.write(desc_subset.shape)
 
-        # Get chembl_id if available
-        chembl_ids = desc.iloc[:, 0] if 'chembl_id' in desc.columns[0].lower() else pd.Series(range(len(desc)))
+        # Prediction
+        build_model(desc_subset, load_data)
         
-        build_model(desc_subset, chembl_ids)
     else:
-        st.error("Please upload a CSV file to proceed.")
+        st.error("Please upload both compound file and descriptor file.")
 else:
-    st.info("Upload precomputed molecular descriptor CSV to begin.")
+    st.info("👈 Upload files to start prediction.")
